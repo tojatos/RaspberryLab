@@ -1,2 +1,2 @@
 #!/bin/bash
-pytest --tb=line
+PYTHONPATH=. pytest --tb=line -s
