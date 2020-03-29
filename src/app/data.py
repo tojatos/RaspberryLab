@@ -39,3 +39,7 @@ def insert_card_reading(terminal_id, rfid):
     c.execute("INSERT INTO CardReading (terminalId, rfid, readTime) VALUES (?, ?, ?)",
               (terminal_id, rfid, strftime("%Y-%m-%d %H:%M:%S", gmtime())))
     conn.commit()
+
+def delete_terminal(name):
+    c.execute("DELETE FROM Terminal WHERE  name=?", (name,))
+    conn.commit()
