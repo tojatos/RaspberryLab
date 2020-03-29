@@ -41,5 +41,9 @@ def insert_card_reading(terminal_id, rfid):
     conn.commit()
 
 def delete_terminal(name):
-    c.execute("DELETE FROM Terminal WHERE  name=?", (name,))
+    c.execute("DELETE FROM Terminal WHERE name=?", (name,))
+    conn.commit()
+
+def delete_employee(employee_id):
+    c.execute("DELETE FROM Employee WHERE id=?", (employee_id,))
     conn.commit()

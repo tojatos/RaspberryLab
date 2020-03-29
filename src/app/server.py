@@ -21,4 +21,10 @@ def register_card_reading(terminal_id, rfid):
     except StopIteration:
         logger.log(f"Terminal with id {terminal_id} not found!")
 
+def register_employee(name):
+    data.insert_employee(name)
+    logger.log(f"{name} registered.")
 
+def unregister_employee(employee_id):
+    data.delete_employee(employee_id)
+    logger.log(f"Employee with id {employee_id} unregistered.")
