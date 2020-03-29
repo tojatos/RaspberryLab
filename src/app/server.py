@@ -28,3 +28,11 @@ def register_employee(name):
 def unregister_employee(employee_id):
     data.delete_employee(employee_id)
     logger.log(f"Employee with id {employee_id} unregistered.")
+
+def associate_card_with_employee(rfid, employee_id):
+    data.update_card_employee(rfid, employee_id)
+    logger.log(f"Card {rfid} assigned to employee with id {employee_id}.")
+
+def disassociate_card_with_employee(rfid):
+    data.update_card_employee(rfid)
+    logger.log(f"Card {rfid} disassigned.")
