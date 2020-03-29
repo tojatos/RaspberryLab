@@ -3,7 +3,20 @@ from app import logger
 
 def generate_time_report():
     logger.log("Generating time report...")
-    pass
+
+    cr = data.get_card_readings()
+
+    employee_ids_on_readings = set(x[0] for x in cr)
+    cr_by_employee_id = {y:[(x[2], x[3]) for x in cr if x[0] == y] for y in employee_ids_on_readings}
+    cr_by_employee_id_paired = {k:list(zip(v[::2], v[1::2])) for (k, v) in cr_by_employee_id.items()}
+    i = cr_by_employee_id_paired.items()
+
+    csv = "\n".join([",".join([str(k or "None"), t[0][0], t[0][1], t[1][0], t[1][1]]) for (k, v) in i for t in v])
+
+    with open("time_report.csv", "w") as file:
+        file.write(csv)
+
+    logger.log("Time report generated.")
 
 def register_client(name):
     data.insert_terminal(name)
@@ -14,6 +27,11 @@ def unregister_client(name):
     logger.log(f"{name} unregistered.")
 
 def register_card_reading(terminal_id, rfid):
+    cards = data.get_cards()
+    rfids = set(x[0] for x in cards)
+    if rfid not in rfids:
+        data.insert_card(rfid)
+
     try:
         terminal_name = next(terminal[1] for terminal in data.get_terminals() if terminal[0] == terminal_id)
         data.insert_card_reading(terminal_id, rfid)

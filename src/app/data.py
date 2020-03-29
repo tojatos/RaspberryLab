@@ -14,7 +14,15 @@ def get_cards():
     return fetchall("SELECT * FROM Card")
 
 def get_card_readings():
-    return fetchall("SELECT * FROM CardReading")
+   return fetchall(
+"""
+SELECT
+Employee.id, Employee.name, Terminal.name, readTime
+FROM CardReading
+INNER JOIN Card ON CardReading.rfid = Card.rfid
+INNER JOIN Terminal ON CardReading.terminalId = Terminal.id
+LEFT JOIN Employee ON Card.employeeId = Employee.id
+""")
 
 def get_terminals():
     return fetchall("SELECT * FROM Terminal")
