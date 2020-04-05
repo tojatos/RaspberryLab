@@ -1,9 +1,23 @@
 #!/usr/bin/env python3
 
-from app import controller, data
+from app import controller, data, logger
+import paho.mqtt.client as mqtt
 import tkinter as tk
+import tkinter.messagebox
+import traceback
+import pdb
+
+def callback_error(self, *args):
+    message = 'Generic error:\n\n'
+    message += traceback.format_exc()
+    tkinter.messagebox.showerror('Error', message)
+
+tk.Tk.report_callback_exception = callback_error
+
+broker = 'localhost'
 
 root = tk.Tk()
+client = mqtt.Client()
 
 def print_data(title, data_to_print):
     print_window = tk.Tk()
@@ -36,9 +50,24 @@ def create_main_root():
     for button in buttons:
         button.grid(sticky='nesw', padx=5)
 
+def process_message(client, userdata, message):
+    message_decoded = str(message.payload.decode('utf-8'))
+    logger.log(f'Message received: {message_decoded}')
+    (terminal_id, rfid) = message_decoded.split(' ')
+    #pdb.set_trace()
+    controller.register_card_reading(int(terminal_id), int(rfid))
+
 def run_server():
+    client.connect(broker)
+    client.on_message = process_message
+    client.loop_start()
+    client.subscribe('app/card_reading')
+
     create_main_root()
     root.mainloop()
+
+    client.loop_stop()
+    client.disconnect()
 
 if __name__ == '__main__':
     run_server()
