@@ -1,7 +1,7 @@
 import sqlite3
 from time import gmtime, strftime
 
-conn = sqlite3.connect("app/database/database.db")
+conn = sqlite3.connect("app/database/database.db", check_same_thread=False)
 c = conn.cursor()
 
 def fetchall(sql):
