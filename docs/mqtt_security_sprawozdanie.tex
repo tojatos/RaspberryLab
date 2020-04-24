@@ -1,0 +1,81 @@
+\documentclass[10pt,a4paper]{article}
+
+\author{Krzysztof Ruczkowski}
+\title{Sprawozdanie\\bezpieczeństwo protokołu MQTT --- wprowadzenie}
+
+\usepackage[MeX]{polski}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{fullpage}
+\usepackage{textcomp}
+\usepackage{amsmath, amssymb}
+\usepackage{minted}
+
+\newcommand\nt[1]{\mkern1mu\overline{\mkern-1mu#1\mkern-1mu}\mkern1mu}
+
+\begin{document}
+\maketitle
+\newpage
+\tableofcontents
+\newpage
+
+\section{Wprowadzenie}
+
+Sprawozdanie dotyczy labolatorium wprowadzającego z bezpieczeństwa protokołu MQTT.
+\\
+Przetestowane na systemie Arch Linux.
+
+\section{Przebieg prac}
+
+\subsection{Instalacja Mosquitto i Openssl}
+Wystarczy zainstalować paczki \texttt{mosquitto} i \texttt{openssl}, a następnie uruchomić serwis \texttt{mosquitto}:
+
+\begin{minted}{bash}
+  pacman -S mosquitto openssl
+  systemctl enable --now mosquitto
+\end{minted}
+
+\subsection{Generacja certyfikatów}
+Używając \texttt{openssl} można wygenerować certyfikaty wymagane do skonfigurowania połączenia TLS:
+
+\begin{minted}{bash}
+openssl genrsa -des3 -out ca.key 2048
+openssl req -new -x509 -days 1826 -key ca.key -out ca.crt
+openssl genrsa -out server.key 2048
+openssl req -new -out server.csr -key server.key
+# tutaj należy wpisać nazwę domeny serwera w polu "Common Name"
+openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 360
+\end{minted}
+
+\subsection{Konfiguracja Mosquitto}
+Po wygenerowaniu certyfikatów należy edytować plik \texttt{mosquitto.conf} zgodnie z instrukcją.
+Należy dodać tam port i ścieżki do certyfikatów.
+
+\begin{minted}{bash}
+vim /etc/mosquitto/mosquitto.conf
+\end{minted}
+
+Po konfiguracji nie trzeba uruchamiać ponownie komputera, wystarczy zrestartować serwis:
+
+\begin{minted}{bash}
+systemctl restart mosquitto
+\end{minted}
+
+Tutaj może pojawić się błąd z uruchomieniem usługi. Należy upewnić się, że serwis ma uprawnienia do odczytu certyfikatów, a jeśli nie ma to dodać je poleceniem \texttt{chmod}.
+
+\subsection{Test konfiguracji}
+Po konfiguracji pozostaje przetestować funkcjonalność przykładu, odpowiednio modyfikując pliki \texttt{sender.py} i \texttt{receiver.py}:
+
+\begin{minted}{python}
+broker = "MightyTos4"
+port = 8883
+
+client.tls_set("ca.crt")
+client.connect(broker, port)
+\end{minted}
+
+\section{Podsumowanie}
+Wykonanie ćwiczenia na Linuksie było proste i przyjemne.\\
+Na Windowsie to także jest proste i wygląda analogicznie - trzeba tylko ręcznie instalować Mosquitto i Openssl, pamiętając o dodaniu binarek do zmiennej środowiskowej \texttt{PATH} dla wygody. Do uruchomienia i restartu serwisu Mosquitto także ponowne uruchomienie systemu nie jest wymagane, jak sugeruje instrukcja - wystarczy znaleźć serwis "Mosquitto Broker" w \texttt{services.msc}.
+
+\end{document}
