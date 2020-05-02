@@ -1,0 +1,141 @@
+\documentclass[10pt,a4paper]{article}
+\author{Krzysztof Ruczkowski}
+\title{Sprawozdanie\\bezpieczeństwo protokołu MQTT\\uwierzetylnianie i autoryzacja}
+
+\usepackage[MeX]{polski}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{fullpage}
+\usepackage{textcomp}
+\usepackage{amsmath, amssymb}
+\usepackage{minted}
+
+\setlength\parindent{0pt}
+
+\newcommand\nt[1]{\mkern1mu\overline{\mkern-1mu#1\mkern-1mu}\mkern1mu}
+\begin{document}
+\maketitle
+\newpage
+\tableofcontents
+\newpage
+
+\section{Wprowadzenie}
+
+Sprawozdanie dotyczy labolatorium z bezpieczeństwa protokołu MQTT odnoszącego się do uwierzytelniania i autoryzacji.
+\\
+Przetestowane na systemie Arch Linux.
+
+\section{Przebieg prac}
+
+\subsection{Stworzenie użytkowników}
+Poniższe komendy wykonuję jako superuser, aby móc zapisywać do katalogu \texttt{/etc/mosquitto/}:
+
+\begin{minted}{bash}
+  cd /etc/mosquitto/
+  mosquitto_passwd -c passwd.conf server
+  mosquitto_passwd -b passwd.conf client password
+\end{minted}
+
+Plik \texttt{passwd.conf} zawiera loginy i zaszyfrowane hasła w formacie przypominającym plik \texttt{/etc/shadow}.
+
+\subsection{Konfiguracja uwierzytelniania}
+Po stworzeniu użytkowników należy edytować plik \texttt{mosquitto.conf} zgodnie z instrukcją.
+Należy dodać tam linijki uniemożliwiające połączenie bez loginu (\texttt{allow\_anonymous false}) oraz wskazać plik z loginami i hasłami (\texttt{password\_file /etc/mosquitto/passwd.conf}).
+
+\begin{minted}{bash}
+  vim /etc/mosquitto/mosquitto.conf
+\end{minted}
+
+Po konfiguracji nie trzeba uruchamiać ponownie komputera, wystarczy zrestartować serwis:
+
+\begin{minted}{bash}
+  systemctl restart mosquitto
+\end{minted}
+
+\subsection{Test konfiguracji uwierzytelniania}
+Po konfiguracji pozostaje przetestować funkcjonalność przykładu, odpowiednio modyfikując pliki \texttt{sender.py} i \texttt{receiver.py}:
+
+\begin{minted}{python}
+# dane dostępowe dla klienta
+# analogicznie ustawiamy dane dostępowe serwera w receiver.py
+client.username_pw_set(username='client', password='password')
+\end{minted}
+
+Jeżeli nie dodamy uwierzytelnienia, nie będzie można wysyłać i odbierać wiadomości.
+
+\subsection{Stworzenie pliku kontroli dostępu}
+Poniższe komendy wykonuję jako superuser, aby móc zapisywać do katalogu \texttt{/etc/mosquitto/}:
+
+\begin{minted}{bash}
+  cat > /etc/mosquitto/acfile.conf
+  # This only affects clients with username "server".
+  user server
+  topic server/name
+  topic worker/name
+
+  # This only affects clients with username "client".
+  user client
+  topic read server/name
+  topic worker/name
+\end{minted}
+
+Działanie tego pliku jest opisane w sekcji \texttt{Default authentication and topic access control} w \texttt{mosquitto.conf}.
+
+\subsection{Konfiguracja autoryzacji}
+Po stworzeniu użytkowników należy edytować plik \texttt{mosquitto.conf} zgodnie z instrukcją.
+Należy dodać tam wskazać plik kontroli dostępu (\texttt{acl\_file /etc/mosquitto/acfile.conf}).
+
+\begin{minted}{bash}
+  vim /etc/mosquitto/mosquitto.conf
+\end{minted}
+
+Po konfiguracji nie trzeba uruchamiać ponownie komputera, wystarczy zrestartować serwis:
+
+\begin{minted}{bash}
+  systemctl restart mosquitto
+\end{minted}
+
+\subsection{Test konfiguracji autoryzacji}
+Po konfiguracji pozostaje przetestować funkcjonalność przykładu, odpowiednio modyfikując pliki \texttt{sender.py} i \texttt{receiver.py}:
+
+\begin{minted}{python}
+# sender.py
+from tkinter import messagebox
+
+# (...)
+def process_message(client, userdata, message):
+    message_decoded = (str(message.payload.decode("utf-8")))
+    messagebox.showinfo("Message from the Server", message_decoded)
+
+def connect_to_broker():
+    # (...)
+    client.on_message = process_message
+    client.loop_start()
+    client.subscribe("server/name")
+    # (...)
+
+def disconnect_from_broker():
+    # (...)
+    client.loop_stop()
+    # (...)
+\end{minted}
+\begin{minted}{python}
+# receiver.py
+# (...)
+def create_main_window():
+    # (...)
+    hello_button = tkinter.Button(window, text="Hello from the server",
+            command=lambda: client.publish("server/name", "Hello from the server"))
+    # (...)
+    hello_button.pack(side="right")
+    # (...)
+\end{minted}
+
+\section{Podsumowanie}
+Uwierzytelnianie i autoryzacja w MQTT pozwala nam na bezpieczny przesył danych, aby uniemożliwić niepowołanym osobom na ich przechwycenie.
+\\\\
+Można nasłuchiwać wszystkich wiadomości używając komendy \texttt{mosquitto\_sub}, co przydaje się w debugowaniu:
+\begin{minted}{bash}
+mosquitto_sub -v -h MightyTos4 -t '#' -u server -P server_pass -p 8883 --cafile ca.crt
+\end{minted}
+\end{document}
