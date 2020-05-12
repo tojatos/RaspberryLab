@@ -14,7 +14,8 @@ def callback_error(self, *args):
 
 tk.Tk.report_callback_exception = callback_error
 
-broker = 'localhost'
+broker = 'MightyTos4'
+port = 8883
 
 root = tk.Tk()
 client = mqtt.Client()
@@ -106,7 +107,9 @@ def process_message(client, userdata, message):
     controller.register_card_reading(int(terminal_id), int(rfid))
 
 def run_server():
-    client.connect(broker)
+    client.tls_set('ca.crt')
+    client.username_pw_set(username='server', password='123qwe')
+    client.connect(broker, port)
     client.on_message = process_message
     client.loop_start()
     client.subscribe('app/card_reading')

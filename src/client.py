@@ -3,7 +3,9 @@
 import paho.mqtt.client as mqtt
 import tkinter as tk
 
-broker = 'localhost'
+broker = 'MightyTos4'
+port = 8883
+
 terminal_ids = [1, 2, 3, 4]
 current_terminal_id = terminal_ids[0]
 
@@ -41,7 +43,9 @@ def create_main_root():
         button.grid(sticky='nesw', padx=5)
 
 def run_client():
-    client.connect(broker)
+    client.tls_set('ca.crt')
+    client.username_pw_set(username='client', password='qwe123')
+    client.connect(broker, port)
     create_main_root()
     set_current_terminal(terminal_ids[0])
     root.mainloop()

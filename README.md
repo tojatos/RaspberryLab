@@ -12,6 +12,18 @@ cd src
 source venv/bin/activate
 ```
 
+Wymagana jest także poprawna konfiguracja mosquitto, dodając uwierzytelnienie i autoryzację.
+
+Zawartość aclfile.conf:
+
+```
+user server
+topic read app/card_reading
+
+user client
+topic app/card_reading
+```
+
 Można teraz uruchomić testy (`./test.sh`), które wyświetlą zawartość bazy danych.
 Można także uruchomić serwer (`./server.py`) lub klienta (`./client.py`).
 
