@@ -1,0 +1,169 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[MeX]{polski}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{fullpage}
+\usepackage{textcomp}
+\usepackage{amsmath, amssymb}
+\usepackage{minted}
+\usepackage{titling}
+\setlength\parindent{0pt}
+
+\newcommand{\subtitle}[1]{%
+  \posttitle{%
+    \par\end{center}
+    \begin{center}\large#1\end{center}
+    \vskip0.5em}%
+}
+
+\newcommand\nt[1]{\mkern1mu\overline{\mkern-1mu#1\mkern-1mu}\mkern1mu}
+
+\author{Krzysztof Ruczkowski}
+\title{Raport}
+\subtitle{System ewidencji czasu pracy\\wykorzystujący technologie Internetu Rzeczy}
+
+
+\begin{document}
+
+\maketitle
+\newpage
+\tableofcontents
+\newpage
+
+\section{Dane raportu}
+
+\begin{tabular}{ll}
+Przedmiot: & Podstawy Internetu Rzeczy\\
+Imię i nazwisko autora: & Krzysztof Ruczkowski\\
+Nr indeksu: & 246739\\
+Semestr studiów: & 4\\
+Data ukończenia pracy: & Maj 2020 r.\\
+Prowadzący labolatorium: & mgr inż. Piotr Jóźwiak\\
+\end{tabular}
+
+\section{Wymagania projektowe}
+
+\subsection{Wymagania funkcjonalne}
+
+\begin{enumerate}
+  \item Rejestracja i usuwanie danych terminali odczytujących karty
+  \item Rejestracja i usuwanie danych pracowników
+  \item Rejestracja i usuwanie danych kart RFID
+  \item Przypisywanie i usuwanie przypisań pracowników do kart RFID
+  \item Rejestrowanie odczytów kart RFID
+  \item Generowanie pliku csv zawierającego czasy przychodzenia i wychodzenia z pracy pracowników
+\end{enumerate}
+
+\subsection{Wymagania niefunkcjonalne}
+\begin{enumerate}
+  \item Użycie Pythona 3 do implementacji
+  \item Użycie MQTT do komunikacji
+  \item Użycie tkinter do wyświetlania GUI
+  \item Użycie bazy danych SQLite do trwałego przechowania danych
+  \item Bezpieczny przesył danych (autoryzacja i uwierzytelnianie)
+\end{enumerate}
+
+\section{Opis architektury systemu}
+
+System (\texttt{server.py}) to aplikacja nasłuchująca uwierzytelnionych wiadomości przesyłanych przez MQTT zawierającyh informacje dotyczące odczytu karty.
+Aplikacja jest wyposażona w GUI, za pomocą którego możemy spełnić resztę wymagań funkcjonalnych.\\
+Możemy zasymulować odczyt karty za pomocą \texttt{client.py}.
+
+\section{Opis implementacji i zastosowanych rozwiązań}
+\subsection{Baza danych}
+Została wykorzystana baza danych SQLite, przykład z pliku \texttt{src/appdata.py}:
+\begin{minted}{python}
+def fetchall(sql):
+    return c.execute(sql).fetchall()
+
+def get_employees():
+    return fetchall("SELECT * FROM Employee")
+
+def get_cards():
+    return fetchall("SELECT * FROM Card")
+
+def get_card_readings():
+   return fetchall(
+"""
+SELECT
+Employee.id, Employee.name, Terminal.name, readTime
+FROM CardReading
+INNER JOIN Card ON CardReading.rfid = Card.rfid
+INNER JOIN Terminal ON CardReading.terminalId = Terminal.id
+LEFT JOIN Employee ON Card.employeeId = Employee.id
+""")
+
+def get_terminals():
+    return fetchall("SELECT * FROM Terminal")
+
+def insert_employee(name):
+    c.execute("INSERT INTO Employee (name) VALUES (?)", (name,))
+    conn.commit()
+\end{minted}
+
+\subsection{Generacja pliku csv z czasami}
+Za generację pliku odpowiada funkcja w \texttt{src/app/controller.py}:
+
+\begin{minted}{python}
+def generate_time_report():
+    logger.log("Generating time report...")
+
+    cr = data.get_card_readings()
+
+    employee_ids_on_readings = set(x[0] for x in cr)
+    cr_by_employee_id = {y:[(x[2], x[3]) for x in cr if x[0] == y] for y in employee_ids_on_readings}
+    cr_by_employee_id_paired = {k:list(zip(v[::2], v[1::2])) for (k, v) in cr_by_employee_id.items()}
+    i = cr_by_employee_id_paired.items()
+
+    csv = "\n".join([",".join([str(k or "None"), t[0][0], t[0][1], t[1][0], t[1][1]]) for (k, v) in i for t in v])
+
+    with open("time_report.csv", "w") as file:
+        file.write(csv)
+
+    logger.log("Time report generated.")
+\end{minted}
+Może wyglądać nieco skomplikowanie, dlatego skupmy się na nazwach zmiennych.\\
+Najpierw wyciągamy dane z bazy odnośnie odczytów kart do zmiennej \texttt{cr}.
+Operujemy na tej zmiennej, najpierw wyciągając zbiór ID pracowników na odczytach.
+Następnie tworzymy słownik, którego kluczem jest ID pracownika, a wartością jego odczyty z karty.
+Potem wystarczy połączyć odczyty w pary, gdzie pierwszy odczyt jest czasem przyjścia do pracy a drugi czasem wyjścia, sformatować te pary do formatu csv i zapisać plik.
+
+\section{Opis działania i prezentacja interfejsu}
+\subsection{Przygotowanie środowiska}
+\subsubsection{Konfiguracja Mosquitto}
+Należy skonfigurować MQTT dodając uwierzytelnianie i autoryzację, tworząc użytkowników 'client' i 'server' oraz używając certyfikatów z folderu \texttt{certs}.\\
+
+Zawartość aclfile.conf:
+
+\begin{minted}{bash}
+user server
+topic read app/card_reading
+
+user client
+topic app/card_reading
+\end{minted}
+\subsubsection{Pobranie zależności Python'a}
+\begin{minted}{bash}
+cd src
+./setupenv.sh
+source venv/bin/activate
+\end{minted}
+
+\subsection{Uruchomienie aplikacji}
+Sprawdzić działanie aplikacji można uruchamiając serwer i klientów symulujących terminale:
+\begin{minted}{bash}
+./server.py &; ./client.py &; ./client.py &;
+\end{minted}
+
+\subsection{Screeny}
+Screeny przedstawiające działanie aplikacji znajdują się w folderze \texttt{screens}.
+
+\section{Podsumowanie}
+Projekt jest zgodny ze wszystkimi wymaganiami funkcjonalnymi.\\
+Trudnością w implementacji było użycie tkinter'a z bazą danych, której trzeba otwarcie umożliwić działanie na wielu wątkach. Samo zdebugowanie tego problemu wymagało czasu ze względu na domyślne ignorowanie wyjątków przez tkinter (dopiero użycie pdb (python debugger) pomogło).\\
+Rozbudowa projektu nie powinna stanowić problemu ze względu na modularność i rozdzielenie odpowiedzialności między moduły.
+\section{Aneks}
+Kod projektu znajduje się na eportalu.
+
+\end{document}
